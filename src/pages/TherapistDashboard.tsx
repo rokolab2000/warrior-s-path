@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Users, Trophy, TrendingUp, LogOut } from "lucide-react";
+import { Users, Trophy, TrendingUp, LogOut, UserPlus, Eye, Activity } from "lucide-react";
 import { toast } from "sonner";
+import AddPatientDialog from "@/components/AddPatientDialog";
+import PatientDetailsDialog from "@/components/PatientDetailsDialog";
 
 interface Patient {
   id: string;
@@ -29,6 +31,12 @@ export default function TherapistDashboard() {
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<PatientProgress[]>([]);
   const [therapistName, setTherapistName] = useState("");
+  const [therapistId, setTherapistId] = useState("");
+  const [addPatientOpen, setAddPatientOpen] = useState(false);
+  const [detailsPatientId, setDetailsPatientId] = useState<string | null>(null);
+  const [detailsPatientName, setDetailsPatientName] = useState("");
+  const [detailsPatientAvatar, setDetailsPatientAvatar] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     checkTherapistRole();
@@ -67,6 +75,7 @@ export default function TherapistDashboard() {
       setTherapistName(profile.name);
     }
 
+    setTherapistId(user.id);
     await loadPatients(user.id);
   };
 
@@ -148,6 +157,19 @@ export default function TherapistDashboard() {
     return `Hace ${diffDays} días`;
   };
 
+  const handleViewDetails = (patient: Patient) => {
+    setDetailsPatientId(patient.id);
+    setDetailsPatientName(patient.name);
+    setDetailsPatientAvatar(patient.avatar);
+    setDetailsOpen(true);
+  };
+
+  const handlePatientAdded = () => {
+    if (therapistId) {
+      loadPatients(therapistId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-secondary/10">
@@ -169,27 +191,38 @@ export default function TherapistDashboard() {
               <p className="text-sm text-muted-foreground">Bienvenido, {therapistName}</p>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="outline" size="sm">
-            <LogOut className="mr-2 h-4 w-4" />
-            Salir
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setAddPatientOpen(true)} variant="default" size="sm">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Agregar Paciente
+            </Button>
+            <Button onClick={handleLogout} variant="outline" size="sm">
+              <LogOut className="mr-2 h-4 w-4" />
+              Salir
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Pacientes</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{patients.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {patients.filter(p => p.lastActivity && 
+                  new Date(p.lastActivity) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                ).length} activos esta semana
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Progreso Promedio</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -200,10 +233,13 @@ export default function TherapistDashboard() {
                   ? Math.round(patients.reduce((acc, p) => acc + p.completionRate, 0) / patients.length)
                   : 0}%
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {patients.filter(p => p.completionRate === 100).length} completaron todo
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Gemas Totales</CardTitle>
               <Trophy className="h-4 w-4 text-muted-foreground" />
@@ -212,19 +248,36 @@ export default function TherapistDashboard() {
               <div className="text-2xl font-bold">
                 {patients.reduce((acc, p) => acc + p.patient.gems, 0)} 💎
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Promedio: {patients.length > 0 
+                  ? Math.round(patients.reduce((acc, p) => acc + p.patient.gems, 0) / patients.length)
+                  : 0} por paciente
+              </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Patient List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-foreground mb-4">Mis Pacientes</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-foreground">Mis Pacientes</h2>
+            {patients.length > 0 && (
+              <Badge variant="secondary" className="text-sm">
+                <Activity className="h-3 w-3 mr-1" />
+                {patients.length} pacientes
+              </Badge>
+            )}
+          </div>
           
           {patients.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No tienes pacientes asignados aún</p>
+                <p className="text-muted-foreground mb-4">No tienes pacientes asignados aún</p>
+                <Button onClick={() => setAddPatientOpen(true)} variant="default">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Agregar Primer Paciente
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -261,8 +314,18 @@ export default function TherapistDashboard() {
                       </div>
                       <Progress value={progress.completionRate} className="h-2" />
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Última actividad: {formatLastActivity(progress.lastActivity)}
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Última actividad: {formatLastActivity(progress.lastActivity)}
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewDetails(progress.patient)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver Detalles
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -271,6 +334,22 @@ export default function TherapistDashboard() {
           )}
         </div>
       </main>
+
+      {/* Dialogs */}
+      <AddPatientDialog
+        therapistId={therapistId}
+        open={addPatientOpen}
+        onOpenChange={setAddPatientOpen}
+        onPatientAdded={handlePatientAdded}
+      />
+
+      <PatientDetailsDialog
+        patientId={detailsPatientId}
+        patientName={detailsPatientName}
+        patientAvatar={detailsPatientAvatar}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </div>
   );
 }
