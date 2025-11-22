@@ -23,24 +23,37 @@ const CameraExercise = ({ mission, onComplete, onCancel }: CameraExerciseProps) 
   const [countdown, setCountdown] = useState<number | null>(null);
   const [exercising, setExercising] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const startCamera = async () => {
+    setIsLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: { 
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false,
       });
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
+        
+        // Wait for video to be ready
+        await videoRef.current.play();
+        
         setCameraActive(true);
         toast.success("Cámara activada - ¡Prepárate!");
       }
     } catch (error) {
+      console.error("Error al activar cámara:", error);
       toast.error("No se pudo acceder a la cámara. Verifica los permisos.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -146,9 +159,14 @@ const CameraExercise = ({ mission, onComplete, onCancel }: CameraExerciseProps) 
         <div className="flex gap-3 justify-center">
           {!cameraActive ? (
             <>
-              <Button onClick={startCamera} size="lg" className="gap-2">
+              <Button 
+                onClick={startCamera} 
+                size="lg" 
+                className="gap-2"
+                disabled={isLoading}
+              >
                 <Camera className="w-5 h-5" />
-                Activar Cámara
+                {isLoading ? "Activando..." : "Activar Cámara"}
               </Button>
               <Button onClick={onCancel} variant="outline" size="lg">
                 Cancelar
