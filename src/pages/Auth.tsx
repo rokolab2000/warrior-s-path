@@ -31,6 +31,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState(WARRIOR_ANIMALS[0].emoji);
   const [availability, setAvailability] = useState(AVAILABILITY_OPTIONS[0].value);
+  const [role, setRole] = useState<"patient" | "therapist">("patient");
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -39,7 +40,7 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -48,22 +49,44 @@ const Auth = () => {
               name,
               avatar: selectedAvatar,
               availability,
+              role,
             },
           },
         });
 
         if (error) throw error;
+
+        // If therapist, add therapist role
+        if (data.user && role === "therapist") {
+          await supabase.from("user_roles").insert({
+            user_id: data.user.id,
+            role: "therapist",
+          });
+        }
+
         toast.success("¡Bienvenido al Camino del Guerrero! 🎉");
-        navigate("/");
+        
+        // Navigate based on role
+        navigate(role === "therapist" ? "/therapist" : "/dashboard");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) throw error;
-        toast.success("¡Bienvenido de vuelta, guerrero! 💪");
-        navigate("/");
+
+        // Check user role after login
+        if (data.user) {
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", data.user.id);
+
+          const isTherapist = roles?.some(r => r.role === "therapist");
+          toast.success("¡Bienvenido de vuelta, guerrero! 💪");
+          navigate(isTherapist ? "/therapist" : "/dashboard");
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Error en la autenticación");
@@ -134,6 +157,19 @@ const Auth = () => {
                         {option.label}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Tipo de Cuenta</Label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as "patient" | "therapist")}
+                    className="w-full p-2 rounded-lg border border-input bg-background"
+                  >
+                    <option value="patient">Paciente</option>
+                    <option value="therapist">Terapeuta</option>
                   </select>
                 </div>
               </>
