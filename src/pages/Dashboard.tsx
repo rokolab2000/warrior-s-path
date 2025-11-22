@@ -234,6 +234,17 @@ const Dashboard = () => {
 
           <div className="flex items-center gap-4">
             <GemCounter gems={profile?.gems ?? 0} />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                navigator.clipboard.writeText(profile?.id || "");
+                toast.success("ID copiado al portapapeles");
+              }}
+              className="hidden sm:flex"
+            >
+              Mi ID
+            </Button>
             <Button variant="outline" size="icon" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
             </Button>
