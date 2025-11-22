@@ -14,7 +14,14 @@ const Index = () => {
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      navigate("/dashboard");
+      // Check if user is therapist
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+
+      const isTherapist = roles?.some(r => r.role === "therapist");
+      navigate(isTherapist ? "/therapist" : "/dashboard");
     }
   };
 

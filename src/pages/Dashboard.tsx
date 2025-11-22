@@ -51,6 +51,18 @@ const Dashboard = () => {
       return;
     }
 
+    // Check if user is therapist
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id);
+
+    const isTherapist = roles?.some(r => r.role === "therapist");
+    if (isTherapist) {
+      navigate("/therapist");
+      return;
+    }
+
     await loadProfile(session.user.id);
     await loadMissions(session.user.id);
   };
