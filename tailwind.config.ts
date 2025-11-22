@@ -47,6 +47,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        gem: {
+          gold: "hsl(var(--gem-gold))",
+          shine: "hsl(var(--gem-shine))",
+        },
+        success: "hsl(var(--success))",
+        "map-path": "hsl(var(--map-path))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
