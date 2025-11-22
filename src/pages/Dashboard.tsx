@@ -128,52 +128,67 @@ const Dashboard = () => {
   const handleCompleteMission = async (missionId: string, gemsEarned: number) => {
     if (!profile) return;
 
-    // Mark mission as completed
-    await supabase
-      .from("user_missions")
-      .update({
+    try {
+      // Mark mission as completed
+      const { error: updateError } = await supabase
+        .from("user_missions")
+        .update({
+          completed: true,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("user_id", profile.id)
+        .eq("mission_id", missionId);
+
+      if (updateError) throw updateError;
+
+      // Update gems
+      const { error: gemsError } = await supabase
+        .from("profiles")
+        .update({ gems: profile.gems + gemsEarned })
+        .eq("id", profile.id);
+
+      if (gemsError) throw gemsError;
+
+      // Record result
+      const { error: resultError } = await supabase.from("results").insert({
+        user_id: profile.id,
+        mission_id: missionId,
+        gems_earned: gemsEarned,
         completed: true,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("user_id", profile.id)
-      .eq("mission_id", missionId);
+      });
 
-    // Update gems
-    await supabase
-      .from("profiles")
-      .update({ gems: profile.gems + gemsEarned })
-      .eq("id", profile.id);
+      if (resultError) throw resultError;
 
-    // Record result
-    await supabase.from("results").insert({
-      user_id: profile.id,
-      mission_id: missionId,
-      gems_earned: gemsEarned,
-      completed: true,
-    });
+      // Unlock next mission
+      const currentMission = missions.find((m) => m.id === missionId);
+      if (currentMission) {
+        const nextMission = missions.find((m) => m.position === currentMission.position + 1);
+        if (nextMission) {
+          const { error: unlockError } = await supabase.from("user_missions").upsert({
+            user_id: profile.id,
+            mission_id: nextMission.id,
+            unlocked: true,
+            completed: false,
+          }, {
+            onConflict: 'user_id,mission_id'
+          });
 
-    // Unlock next mission
-    const currentMission = missions.find((m) => m.id === missionId);
-    if (currentMission) {
-      const nextMission = missions.find((m) => m.position === currentMission.position + 1);
-      if (nextMission) {
-        await supabase.from("user_missions").upsert({
-          user_id: profile.id,
-          mission_id: nextMission.id,
-          unlocked: true,
-          completed: false,
-        });
+          if (unlockError) throw unlockError;
+        }
       }
+
+      setSelectedMission(null);
+      toast.success(`¡Completado! +${gemsEarned} gemas 💎`, {
+        className: "animate-celebrate",
+      });
+
+      // Reload data
+      await loadProfile(profile.id);
+      await loadMissions(profile.id);
+    } catch (error) {
+      console.error("Error completing mission:", error);
+      toast.error("Error al completar la misión. Intenta nuevamente.");
     }
-
-    setSelectedMission(null);
-    toast.success(`¡Completado! +${gemsEarned} gemas 💎`, {
-      className: "animate-celebrate",
-    });
-
-    // Reload data
-    await loadProfile(profile.id);
-    await loadMissions(profile.id);
   };
 
   const handleLogout = async () => {
